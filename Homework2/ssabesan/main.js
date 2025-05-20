@@ -1,25 +1,13 @@
-// main.js for Pokemon Dataset Dashboard
-const width = 1200;
-const height = 1200;
+// Set the margins around the visualizations
+const margin = { top: 20, right: 20, bottom: 50, left: 60 };
 
-let barLeft = 0, barTop = 0;
-let barMargin = {top: 10, right: 30, bottom: 50, left: 60},
-    barWidth = 800 - barMargin.left - barMargin.right,
-    barHeight = 250 - barMargin.top - barMargin.bottom;
+// Define a color scale for Pokémon types using a consistent categorical palette
+const color = d3.scaleOrdinal(d3.schemeTableau10);
 
-let scatterLeft = 0, scatterTop = 300;
-let scatterMargin = {top: 10, right: 30, bottom: 50, left: 60},
-    scatterWidth = 500 - scatterMargin.left - scatterMargin.right,
-    scatterHeight = 350 - scatterMargin.top - scatterMargin.bottom;
-
-let parallelLeft = 0, parallelTop = 700;
-let parallelMargin = {top: 10, right: 30, bottom: 50, left: 60},
-    parallelWidth = width - parallelMargin.left - parallelMargin.right,
-    parallelHeight = height - 850 - parallelMargin.top - parallelMargin.bottom;
-
+// Load Pokémon dataset from CSV
 d3.csv("data/pokemon_alopez247.csv").then(data => {
-    console.log("Loaded data", data);
 
+    // Convert relevant string fields to numbers for plotting
     data.forEach(d => {
         d.HP = +d.HP;
         d.Attack = +d.Attack;
@@ -29,78 +17,201 @@ d3.csv("data/pokemon_alopez247.csv").then(data => {
         d.Speed = +d.Speed;
     });
 
-    const svg = d3.select("svg").attr("width", width).attr("height", height);
-    const color = d3.scaleOrdinal(d3.schemeTableau10);
+    // Create the main SVG container that will hold all views
+    const container = d3.select("#dashboard")
+        .append("svg")
+        .attr("viewBox", "0 0 1200 800")
+        .attr("preserveAspectRatio", "xMidYMid meet")
+        .style("width", "100%")
+        .style("height", "auto");
 
-    // BAR CHART
-    console.log("Rendering bar chart");
-    const g2 = svg.append("g")
-        .attr("transform", `translate(${barLeft + barMargin.left}, ${barTop + barMargin.top})`);
+    // ========== BAR CHART ========== //
+    const barWidth = 350, barHeight = 250;
 
-    const typeCounts = Array.from(d3.rollup(data, v => v.length, d => d.Type_1), ([key, value]) => ({type: key, count: value}));
-    const x2 = d3.scaleBand().domain(typeCounts.map(d => d.type)).range([0, barWidth]).padding(0.2);
-    const y2 = d3.scaleLinear().domain([0, d3.max(typeCounts, d => d.count)]).range([barHeight, 0]);
+    // Create group for bar chart and position it
+    const gBar = container.append("g")
+        .attr("transform", `translate(${margin.left}, ${100})`);
 
-    g2.append("g").attr("transform", `translate(0,${barHeight})`).call(d3.axisBottom(x2)).selectAll("text")
-        .attr("transform", "rotate(-40)").style("text-anchor", "end");
-    g2.append("g").call(d3.axisLeft(y2));
+    // Add title to bar chart
+    gBar.append("text")
+        .attr("x", barWidth / 2)
+        .attr("y", -5)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("Count of Pokémon by Primary Type");
 
-    g2.append("text").attr("x", barWidth / 2).attr("y", barHeight + 40)
-        .style("text-anchor", "middle").text("Type 1");
-    g2.append("text").attr("transform", "rotate(-90)").attr("x", -barHeight / 2).attr("y", -40)
-        .style("text-anchor", "middle").text("Count");
+    // Count how many Pokémon are in each primary type
+    const typeCounts = Array.from(d3.rollup(data, v => v.length, d => d.Type_1), 
+                                  ([key, value]) => ({ type: key, count: value }));
 
-    g2.selectAll("rect").data(typeCounts).enter().append("rect")
-        .attr("x", d => x2(d.type)).attr("y", d => y2(d.count))
-        .attr("width", x2.bandwidth()).attr("height", d => barHeight - y2(d.count))
-        .style("fill", "steelblue");
+    // X and Y scales for bar chart
+    const xBar = d3.scaleBand().domain(typeCounts.map(d => d.type)).range([0, barWidth]).padding(0.2);
+    const yBar = d3.scaleLinear().domain([0, d3.max(typeCounts, d => d.count)]).range([barHeight, 0]);
 
-    // SCATTER PLOT
-    console.log("Rendering scatter plot");
-    const g1 = svg.append("g")
-        .attr("transform", `translate(${scatterLeft + scatterMargin.left}, ${scatterTop + scatterMargin.top})`);
+    // Add x-axis with rotated labels
+    gBar.append("g")
+        .attr("transform", `translate(0,${barHeight})`)
+        .call(d3.axisBottom(xBar))
+        .selectAll("text")
+        .attr("transform", "rotate(-40)")
+        .style("text-anchor", "end");
 
-    const x1 = d3.scaleLinear().domain([0, d3.max(data, d => d.HP)]).range([0, scatterWidth]);
-    const y1 = d3.scaleLinear().domain([0, d3.max(data, d => d.Attack)]).range([scatterHeight, 0]);
+    // Add y-axis
+    gBar.append("g").call(d3.axisLeft(yBar));
 
-    g1.append("g").attr("transform", `translate(0,${scatterHeight})`).call(d3.axisBottom(x1));
-    g1.append("g").call(d3.axisLeft(y1));
+    // Axis labels
+    gBar.append("text")
+        .attr("x", barWidth / 2)
+        .attr("y", barHeight + 40)
+        .attr("text-anchor", "middle")
+        .text("Type");
 
-    g1.append("text").attr("x", scatterWidth / 2).attr("y", scatterHeight + 40)
-        .style("text-anchor", "middle").text("HP");
-    g1.append("text").attr("transform", "rotate(-90)").attr("x", -scatterHeight / 2).attr("y", -40)
-        .style("text-anchor", "middle").text("Attack");
+    gBar.append("text")
+        .attr("x", -barHeight / 2)
+        .attr("y", -40)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text("Count");
 
-    g1.selectAll("circle").data(data).enter().append("circle")
-        .attr("cx", d => x1(d.HP)).attr("cy", d => y1(d.Attack)).attr("r", 4)
-        .style("fill", d => color(d.Type_1)).style("opacity", 0.7);
+    // Create bars
+    gBar.selectAll("rect")
+        .data(typeCounts)
+        .enter()
+        .append("rect")
+        .attr("x", d => xBar(d.type))
+        .attr("y", d => yBar(d.count))
+        .attr("width", xBar.bandwidth())
+        .attr("height", d => barHeight - yBar(d.count))
+        .style("fill", d => color(d.type));
 
-    // PARALLEL COORDINATES
-    console.log("Rendering parallel coordinates");
-    const g3 = svg.append("g")
-        .attr("transform", `translate(${parallelLeft + parallelMargin.left}, ${parallelTop + parallelMargin.top})`);
+    // ========== SCATTER PLOT ========== //
+    const scatterWidth = 350, scatterHeight = 250;
 
+    // Create group for scatter plot
+    const gScatter = container.append("g")
+        .attr("transform", `translate(${barWidth + margin.left * 3}, 100)`);
+
+    // Add title to scatter plot
+    gScatter.append("text")
+        .attr("x", scatterWidth / 2)
+        .attr("y", -5)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("HP vs. Attack");
+
+    // Define x and y scales
+    const xScatter = d3.scaleLinear().domain([0, d3.max(data, d => d.HP)]).range([0, scatterWidth]);
+    const yScatter = d3.scaleLinear().domain([0, d3.max(data, d => d.Attack)]).range([scatterHeight, 0]);
+
+    // Add axes
+    gScatter.append("g")
+        .attr("transform", `translate(0,${scatterHeight})`)
+        .call(d3.axisBottom(xScatter));
+
+    gScatter.append("g").call(d3.axisLeft(yScatter));
+
+    // Axis labels
+    gScatter.append("text")
+        .attr("x", scatterWidth / 2)
+        .attr("y", scatterHeight + 40)
+        .attr("text-anchor", "middle")
+        .text("HP");
+
+    gScatter.append("text")
+        .attr("x", -scatterHeight / 2)
+        .attr("y", -40)
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .text("Attack");
+
+    // Draw scatter plot circles
+    gScatter.selectAll("circle")
+        .data(data)
+        .enter()
+        .append("circle")
+        .attr("cx", d => xScatter(d.HP))
+        .attr("cy", d => yScatter(d.Attack))
+        .attr("r", 4)
+        .style("fill", d => color(d.Type_1))
+        .style("opacity", 0.7);
+
+    // ========== PARALLEL COORDINATES ========== //
+    const parallelWidth = 1100, parallelHeight = 250;
+
+    // Create group for parallel coordinates plot
+    const gParallel = container.append("g")
+        .attr("transform", `translate(${margin.left}, ${scatterHeight + 220})`);
+
+    // Add title
+    gParallel.append("text")
+        .attr("x", parallelWidth / 2)
+        .attr("y", -20)
+        .attr("text-anchor", "middle")
+        .style("font-size", "16px")
+        .text("Parallel Coordinates of Pokémon Stats");
+
+    // Define dimensions and scales for each axis
     const dimensions = ["HP", "Attack", "Defense", "Sp_Atk", "Sp_Def", "Speed"];
-    const y3 = {};
+    const yParallel = {};
     for (let dim of dimensions) {
-        y3[dim] = d3.scaleLinear().domain([0, d3.max(data, d => d[dim])]).range([parallelHeight, 0]);
+        yParallel[dim] = d3.scaleLinear().domain([0, d3.max(data, d => d[dim])]).range([parallelHeight, 0]);
     }
-    const x3 = d3.scalePoint().domain(dimensions).range([0, parallelWidth]);
 
+    // X scale for positioning dimensions
+    const xParallel = d3.scalePoint().domain(dimensions).range([0, parallelWidth]);
+
+    // Function to draw path for a Pokémon's stats
     function path(d) {
-        return d3.line()(dimensions.map(p => [x3(p), y3[p](d[p])]));
+        return d3.line()(dimensions.map(p => [xParallel(p), yParallel[p](d[p])]));
     }
 
-    g3.selectAll("path").data(data).enter().append("path")
-        .attr("d", path).style("fill", "none").style("stroke", d => color(d.Type_1)).style("opacity", 0.3);
+    // Draw one path per Pokémon
+    gParallel.selectAll("path")
+        .data(data)
+        .enter()
+        .append("path")
+        .attr("d", path)
+        .style("fill", "none")
+        .style("stroke", d => color(d.Type_1))
+        .style("opacity", 0.3);
 
-    g3.selectAll("g.axis").data(dimensions).enter().append("g")
-        .attr("transform", d => `translate(${x3(d)},0)`).each(function(d) {
-            d3.select(this).call(d3.axisLeft(y3[d]));
-        }).append("text")
-        .attr("y", -9).attr("text-anchor", "middle").text(d => d).style("fill", "black");
+    // Draw axes and labels for each stat dimension
+    gParallel.selectAll("g.axis")
+        .data(dimensions)
+        .enter()
+        .append("g")
+        .attr("transform", d => `translate(${xParallel(d)},0)`)
+        .each(function(d) {
+            d3.select(this).call(d3.axisLeft(yParallel[d]));
+        })
+        .append("text")
+        .attr("y", -9)
+        .attr("text-anchor", "middle")
+        .text(d => d)
+        .style("fill", "black");
 
-    g3.append("text").attr("x", parallelWidth / 2).attr("y", -20)
-        .style("text-anchor", "middle").text("Parallel Coordinates of Stats");
+    // ========== LEGEND ========== //
 
-}).catch(console.error);
+    // Create a group for the legend and position it
+    const legend = container.append("g")
+        .attr("transform", `translate(${barWidth + scatterWidth + margin.left * 5}, 20)`);
+
+    // Get all unique types and draw color swatches + labels
+    const types = [...new Set(data.map(d => d.Type_1))];
+    types.forEach((type, i) => {
+        const row = legend.append("g").attr("transform", `translate(0, ${i * 20})`);
+
+        row.append("rect")
+            .attr("width", 12)
+            .attr("height", 12)
+            .attr("fill", color(type));
+
+        row.append("text")
+            .attr("x", 18)
+            .attr("y", 10)
+            .text(type)
+            .style("font-size", "12px")
+            .attr("alignment-baseline", "middle");
+    });
+
+}).catch(console.error); // Handle CSV loading errors
